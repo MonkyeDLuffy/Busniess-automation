@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Sign in — Business Finder</title>
+  <link rel="stylesheet" href="admin.css" />
+  <style>
+    .login-shell {
+      min-height: 100vh;
+      display: grid;
+      place-items: center;
+      padding: 2rem;
+    }
+    .login-card {
+      width: 100%;
+      max-width: 400px;
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 20px;
+      padding: 2.2rem 2rem 1.8rem;
+      box-shadow: 0 30px 80px rgba(0, 0, 0, 0.5);
+    }
+    .login-card .brand { margin-bottom: 1.6rem; }
+    .login-card .brand-mark {
+      width: 46px; height: 46px; border-radius: 14px; font-size: 1.5rem;
+    }
+    .login-card .brand h1 { font-size: 1.3rem; }
+    .login-card .brand p { font-size: 0.76rem; }
+    .login-error {
+      display: none;
+      font-size: 0.8rem;
+      line-height: 1.5;
+      color: #ff9a9a;
+      padding: 0.7rem 0.9rem;
+      border: 1px solid rgba(255,154,154,0.3);
+      border-radius: 12px;
+      background: rgba(255,154,154,0.07);
+      margin-bottom: 1.1rem;
+    }
+    .login-card .field { margin-bottom: 1.1rem; }
+    .login-card .primary-btn {
+      width: 100%;
+      margin-top: 0.4rem;
+      padding: 0.95rem 1.4rem;
+      font-size: 1rem;
+    }
+    .login-foot {
+      margin-top: 1.6rem;
+      font-size: 0.72rem;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--muted);
+      text-align: center;
+    }
+  </style>
+</head>
+<body>
+  <div class="login-shell">
+    <div class="login-card">
+      <div class="brand">
+        <span class="brand-mark">N</span>
+        <div>
+          <h1>Business Finder</h1>
+          <p>LOCAL BUSINESS OUTREACH CONSOLE</p>
+        </div>
+      </div>
+
+      <div class="login-error" id="login-error"></div>
+
+      <label class="field">
+        <span>Username</span>
+        <input id="username" autocomplete="username" placeholder="e.g. Earth" autofocus />
+      </label>
+
+      <label class="field">
+        <span>Password</span>
+        <input id="password" type="password" autocomplete="current-password" placeholder="••••••••" />
+      </label>
+
+      <button id="loginBtn" class="primary-btn">Sign in</button>
+
+      <p class="login-foot">Restricted access · authorized users only</p>
+    </div>
+  </div>
+
+  <script>
+    const errBox = document.getElementById('login-error');
+    function showErr(msg) {
+      errBox.textContent = msg;
+      errBox.style.display = 'block';
+    }
+    async function submit() {
+      errBox.style.display = 'none';
+      const username = document.getElementById('username').value.trim();
+      const password = document.getElementById('password').value;
+      if (!username || !password) return showErr('Enter both username and password.');
+      const btn = document.getElementById('loginBtn');
+      btn.disabled = true;
+      try {
+        const res = await fetch('/api/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ username, password })
+        });
+        const data = await res.json();
+        if (!res.ok) {
+          showErr(data.error || 'Invalid username or password');
+          btn.disabled = false;
+          return;
+        }
+        window.location.href = '/';
+      } catch (e) {
+        showErr('Could not reach the server.');
+        btn.disabled = false;
+      }
+    }
+    document.getElementById('loginBtn').addEventListener('click', submit);
+    document.getElementById('password').addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') submit();
+    });
+    document.getElementById('username').addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') document.getElementById('password').focus();
+    });
+  </script>
+</body>
+</html>

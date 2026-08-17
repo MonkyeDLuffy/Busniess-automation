@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Business Outreach — Admin</title>
+  <link rel="stylesheet" href="admin.css" />
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <span class="brand-mark">N</span>
+      <div>
+        <h1>Business Finder</h1>
+        <p>Local business outreach console</p>
+      </div>
+    </div>
+    <div class="status-chip" id="status-chip">
+      <span class="dot"></span>
+      <span id="status-text">Checking…</span>
+    </div>
+    <button id="logoutBtn" class="logout-btn">Sign out</button>
+  </header>
+
+  <main class="grid">
+    <!-- ── Controls ── -->
+    <section class="panel controls">
+      <h2 class="panel-title">New search</h2>
+
+      <label class="field">
+        <span>Location</span>
+        <input id="location" list="locations" placeholder="e.g. Manchester" />
+        <datalist id="locations">
+          <option value="Manchester"></option>
+          <option value="Leeds"></option>
+          <option value="Birmingham"></option>
+          <option value="London"></option>
+          <option value="Liverpool"></option>
+          <option value="Glasgow"></option>
+        </datalist>
+      </label>
+
+      <label class="field">
+        <span>Business type</span>
+        <input id="businessType" placeholder="e.g. coffee shops" />
+      </label>
+
+      <label class="field">
+        <span>Max results</span>
+        <div class="range-row">
+          <input id="maxResults" type="range" min="5" max="100" step="5" value="20" />
+          <output id="maxResultsOut">20</output>
+        </div>
+      </label>
+
+      <label class="field toggle">
+        <input id="writeSheet" type="checkbox" checked />
+        <span>Write to Google Sheet</span>
+      </label>
+
+      <label class="field toggle">
+        <input id="writeNocodb" type="checkbox" checked />
+        <span>Push to NocoDB</span>
+      </label>
+
+      <label class="field toggle">
+        <input id="skipKnown" type="checkbox" checked />
+        <span>Skip already-saved businesses</span>
+      </label>
+
+      <label class="field toggle">
+        <input id="sendEmails" type="checkbox" />
+        <span>Send outreach emails automatically</span>
+      </label>
+
+      <div class="config-note" id="config-note"></div>
+
+      <button id="startBtn" class="primary-btn">Run search</button>
+      <button id="sendBtn" class="secondary-btn" disabled>Send emails to found results</button>
+      <button id="exportBtn" class="secondary-btn" disabled>Save results (JSON)</button>
+    </section>
+
+    <!-- ── Progress / log ── -->
+    <section class="panel progress">
+      <h2 class="panel-title">Progress <span id="elapsed" class="elapsed"></span></h2>
+      <div class="state-badge" id="state-badge">idle</div>
+      <div class="stats-grid" id="stats-grid">
+        <div class="stat"><span class="stat-label">Phase</span><span class="stat-value" id="stat-phase">—</span></div>
+        <div class="stat"><span class="stat-label">Candidates found</span><span class="stat-value" id="stat-candidates">0</span></div>
+        <div class="stat"><span class="stat-label">Duplicates skipped</span><span class="stat-value" id="stat-dupes">0</span></div>
+        <div class="stat"><span class="stat-label">Unique businesses</span><span class="stat-value" id="stat-unique">0</span></div>
+        <div class="stat"><span class="stat-label">Websites checked</span><span class="stat-value" id="stat-websites">0</span></div>
+        <div class="stat"><span class="stat-label">Emails found</span><span class="stat-value" id="stat-emails">0</span></div>
+        <div class="stat"><span class="stat-label">Completed</span><span class="stat-value" id="stat-completed">0</span></div>
+      </div>
+      <ul class="log" id="log"></ul>
+    </section>
+  </main>
+
+  <!-- ── Results table ── -->
+  <section class="panel results">
+    <div class="results-head">
+      <h2 class="panel-title">Results</h2>
+      <span class="results-count" id="results-count">0 businesses</span>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Name</th>
+            <th>Address</th>
+            <th>Phone</th>
+            <th>Email</th>
+            <th>Website</th>
+            <th>Web status</th>
+            <th>Open</th>
+            <th>Email sent</th>
+          </tr>
+        </thead>
+        <tbody id="resultsBody">
+          <tr class="empty"><td colspan="9">No results yet — run a search.</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <script src="admin.js"></script>
+</body>
+</html>
