@@ -11,8 +11,8 @@
     "start": "node src/server.js",
     "dev": "node --watch src/server.js",
     "scrape": "node src/run-cli.js",
-    "browsers": "playwright install chromium",
-    "postinstall": "playwright install chromium"
+    "browsers": "node scripts/install-browsers.mjs",
+    "postinstall": "node scripts/install-browsers.mjs"
   },
   "dependencies": {
     "@vercel/functions": "^3.9.3",

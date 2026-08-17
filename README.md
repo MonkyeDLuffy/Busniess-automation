@@ -50,6 +50,10 @@ Deploy with the **root directory set to `business-automation`**.
 3. **Deploy.** Sign in with one of the fixed users.
 
 ### Vercel limits — read this
+- The Playwright Chromium (headless shell) is installed into `node_modules` during
+  `npm install` (`scripts/install-browsers.mjs`) and bundled into the serverless
+  function via `vercel.json` (`includeFiles`). This makes scraping work on Vercel,
+  but it adds ~100MB to the function: expect slower cold starts.
 - `vercel.json` sets `maxDuration: 60s` (Hobby plan max). Larger searches that
   scrape + enrich many businesses can exceed this. On Pro you can raise it to
   `300` in `vercel.json`.
@@ -57,10 +61,9 @@ Deploy with the **root directory set to `business-automation`**.
   serverless a job may not be visible from another function instance and in-memory
   jobs don't survive cold starts — treat the web UI there as best-effort. Results
   always persist to NocoDB regardless of the UI.
-- The Playwright scraper runs inside the serverless function (Chromium is installed
-  during build via the `postinstall` script). Google Maps scraping from serverless
-  is best-effort: keep `maxResults` modest, and if you hit timeouts, run big
-  searches locally with `npm start` instead — results still land in NocoDB.
+- If Google Maps scraping from serverless is still too slow or flaky, keep
+  `maxResults` modest and run big searches locally with `npm start` instead —
+  results still land in NocoDB.
 
 ## CLI mode (no browser UI)
 
