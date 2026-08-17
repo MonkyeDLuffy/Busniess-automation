@@ -1,8 +1,7 @@
 {
   "functions": {
     "api/index.js": {
-      "maxDuration": 60,
-      "runtime": "nodejs20.x"
+      "maxDuration": 60
     }
   },
   "rewrites": [
