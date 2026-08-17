@@ -1,7 +1,6 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { kvStore } from './kvstore.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const DATA_DIR = path.resolve(__dirname, '../data');
@@ -119,26 +118,5 @@ export function saveDedupIndex(businesses = []) {
   for (const b of businesses) for (const k of flatKeys(b)) map.set(k, b.name || '');
   fs.mkdirSync(DATA_DIR, { recursive: true });
   fs.writeFileSync(INDEX_FILE, JSON.stringify(Object.fromEntries(map), null, 2));
-  return map.size;
-}
-
-export async function loadKnownFingerprintsAsync() {
-  const map = new Map();
-  try {
-    const obj = await kvStore.get('dedup-index');
-    if (obj && typeof obj === 'object') {
-      for (const [k, v] of Object.entries(obj)) map.set(k, v);
-      return map;
-    }
-  } catch {
-    /* fall through to file */
-  }
-  return loadKnownFingerprints();
-}
-
-export async function saveDedupIndexAsync(businesses = []) {
-  const map = await loadKnownFingerprintsAsync();
-  for (const b of businesses) for (const k of flatKeys(b)) map.set(k, b.name || '');
-  await kvStore.set('dedup-index', Object.fromEntries(map));
   return map.size;
 }

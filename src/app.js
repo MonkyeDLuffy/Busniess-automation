@@ -5,18 +5,25 @@ import { createJob, runJob } from './pipeline.js';
 import { isSheetsConfigured } from './sheets.js';
 import { isEmailConfigured, emailSendWarning, sendOutreachToAll } from './emailSender.js';
 import { isNocodbConfigured } from './nocodb.js';
-import { kvStore } from './kvstore.js';
 import { isValidUser, issueToken, verifyToken, parseCookies } from './auth.js';
 
-let waitUntilFn = null;
-try {
-  const vf = await import('@vercel/functions');
-  waitUntilFn = vf.waitUntil || null;
-} catch {
-  waitUntilFn = null;
+let waitUntilPromise = null;
+async function getWaitUntil() {
+  if (!waitUntilPromise) {
+    waitUntilPromise = (async () => {
+      try {
+        const vf = await import('@vercel/functions');
+        return vf.waitUntil || null;
+      } catch {
+        return null;
+      }
+    })();
+  }
+  return waitUntilPromise;
 }
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const jobs = new Map();
 
 export const app = express();
 app.use(express.json());
@@ -76,7 +83,6 @@ app.use('/api', requireAuth);
 app.get('/api/health', (req, res) => {
   res.json({
     ok: true,
-    kvConfigured: kvStore.enabled,
     sheetsConfigured: isSheetsConfigured(),
     nocodbConfigured: isNocodbConfigured(),
     emailConfigured: isEmailConfigured(),
@@ -99,18 +105,14 @@ app.post('/api/jobs', async (req, res) => {
   if (!opts.location || !opts.businessType) {
     return res.status(400).json({ error: 'Both location and business type are required.' });
   }
-  const job = await createJob(opts);
-  const finish = (e) => {
-    if (e) {
-      job.state = 'error';
-      job.error = e.stack || e.message;
-      job.logPush(`FATAL: ${e.message}`);
-    }
-    return job.persistNow();
-  };
-  const run = runJob(job)
-    .then(() => finish(null))
-    .catch(finish);
+  const job = createJob(opts);
+  jobs.set(job.id, job);
+  const run = runJob(job).catch((e) => {
+    job.state = 'error';
+    job.error = e.stack || e.message;
+    job.logPush(`FATAL: ${e.message}`);
+  });
+  const waitUntilFn = await getWaitUntil();
   if (waitUntilFn) {
     waitUntilFn(run);
   } else {
@@ -119,37 +121,44 @@ app.post('/api/jobs', async (req, res) => {
   res.json({ id: job.id, state: job.state });
 });
 
-app.get('/api/jobs', async (req, res) => {
-  const keys = await kvStore.keys('job:*');
-  const jobs = await kvStore.mget(...keys);
-  res.json(jobs.filter(Boolean).map(publicJob));
+app.get('/api/jobs', (req, res) => {
+  res.json([...jobs.values()].map(publicJob));
 });
 
-app.get('/api/jobs/:id', async (req, res) => {
-  const job = await kvStore.get(`job:${req.params.id}`);
+app.get('/api/jobs/:id', (req, res) => {
+  const job = jobs.get(req.params.id);
   if (!job) return res.status(404).json({ error: 'Job not found' });
   res.json(publicJob(job));
 });
 
-app.post('/api/jobs/:id/export', async (req, res) => {
-  const job = await kvStore.get(`job:${req.params.id}`);
+app.post('/api/jobs/:id/export', (req, res) => {
+  const job = jobs.get(req.params.id);
   if (!job) return res.status(404).json({ error: 'Job not found' });
   res.json({ businesses: job.businesses || [] });
 });
 
 app.post('/api/jobs/:id/send-emails', async (req, res) => {
-  const job = await kvStore.get(`job:${req.params.id}`);
+  const job = jobs.get(req.params.id);
   if (!job) return res.status(404).json({ error: 'Job not found' });
   if (!isEmailConfigured()) {
     return res.status(400).json({ error: 'Email sending not configured (RESEND_API_KEY / RESEND_FROM).' });
   }
   const warning = emailSendWarning();
   try {
-    const r = await sendOutreachToAll(job.businesses || [], (m) => job.log?.push(`[${new Date().toLocaleTimeString()}] ${m}`));
+    const r = await sendOutreachToAll(job.businesses || [], (m) => job.logPush(m));
     res.json({ ...r, warning });
   } catch (e) {
     res.status(500).json({ error: e.message });
   }
+});
+
+app.use((req, res) => {
+  res.status(404).json({ error: 'Not found' });
+});
+
+app.use((err, req, res, next) => {
+  console.error('Unhandled error:', err);
+  res.status(500).json({ error: err?.message || 'Internal server error' });
 });
 
 export default app;

@@ -1,4 +1,3 @@
-import { chromium } from 'playwright';
 import { extractPlaceId, normalizeText } from './dedupe.js';
 
 const UA =
@@ -163,6 +162,7 @@ export async function scrapeGoogleMaps(opts = {}) {
   };
   const emit = () => onProgress?.({ ...stats });
 
+  const { chromium } = await import('playwright');
   const browser = await chromium.launch({ headless });
   const context = await browser.newContext({
     userAgent: UA,

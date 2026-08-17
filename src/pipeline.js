@@ -6,13 +6,11 @@ import { enrichBusinesses } from './emailFinder.js';
 import { appendBusinesses } from './sheets.js';
 import { appendBusinessesToNocodb, isNocodbConfigured } from './nocodb.js';
 import { sendOutreachToAll, emailSendWarning } from './emailSender.js';
-import { createDeduplicator, loadKnownFingerprintsAsync, saveDedupIndexAsync } from './dedupe.js';
-import { kvStore } from './kvstore.js';
+import { createDeduplicator, loadKnownFingerprints, saveDedupIndex } from './dedupe.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const DATA_DIR = path.resolve(__dirname, '../data');
 const CONCURRENCY = Number(process.env.CONCURRENCY_LIMIT || 5);
-const JOB_TTL_SEC = 48 * 60 * 60;
 
 export function saveResults(jobId, businesses) {
   fs.mkdirSync(DATA_DIR, { recursive: true });
@@ -68,36 +66,20 @@ export function createJob(opts) {
     stats: {},
     options: { ...opts }
   };
-  let lastPersist = 0;
   job.logPush = (m) => {
     job.log.push(`[${new Date().toLocaleTimeString()}] ${m}`);
-    job.persist();
   };
-  job.persist = async () => {
-    const now = Date.now();
-    if (now - lastPersist < 1000 && job.state !== 'done' && job.state !== 'error') return;
-    lastPersist = now;
-    try {
-      await kvStore.set(`job:${job.id}`, serializeJob(job), JOB_TTL_SEC);
-    } catch {
-      /* state persistence is best-effort */
-    }
-  };
-  job.persistNow = async () => {
-    lastPersist = 0;
-    await job.persist();
-  };
+  job.serialize = () => serializeJob(job);
   return job;
 }
 
 /**
- * Run the full pipeline (serverless-safe).
+ * Run the full pipeline (background job — job object is mutated in memory).
  * @param {object} opts {location, businessType, maxResults, headless, sendEmails, writeSheet, writeNocodb, skipKnown, concurrency}
- * @returns {Promise<object>} completed job (also persisted to the KV store)
+ * @returns {Promise<object>} the completed job
  */
 export async function startPipeline(opts) {
   const job = createJob(opts);
-  await job.persistNow();
   try {
     await runJob(job);
   } catch (e) {
@@ -105,7 +87,6 @@ export async function startPipeline(opts) {
     job.error = e.stack || e.message;
     job.logPush(`FATAL: ${e.message}`);
   }
-  await job.persistNow();
   return job;
 }
 
@@ -150,7 +131,7 @@ export async function runJob(job) {
   // 1. Discover unique businesses
   timings.DISCOVERY = Date.now();
   job.logPush('Scraping Google Maps…');
-  const known = skipKnown ? await loadKnownFingerprintsAsync() : new Map();
+  const known = skipKnown ? loadKnownFingerprints() : new Map();
   const dedup = createDeduplicator({ known });
   if (skipKnown) job.logPush(`Loaded ${dedup.size} previously-saved business fingerprints.`);
 
@@ -168,7 +149,6 @@ export async function runJob(job) {
       job.stats.completed = s.uniqueBusinesses;
       job.stats.failures = s.detailFailures || 0;
       job.stats.elapsedMs = Date.now() - started;
-      job.persist();
     }
   });
   job.stats.candidatesFound = Math.max(job.stats.candidatesFound, items.stats?.candidatesFound || items.length);
@@ -177,7 +157,6 @@ export async function runJob(job) {
   job.stats.completed = items.length;
   job.logPush(`Scraped ${items.length} unique businesses (${job.stats.candidatesFound} candidates, ${job.stats.duplicatesSkipped} duplicates skipped).`);
   stamp('DISCOVERY');
-  await job.persistNow();
 
   if (!items.length) {
     job.stats.elapsedMs = Date.now() - started;
@@ -197,7 +176,6 @@ export async function runJob(job) {
       job.stats.websitesChecked = s.websitesChecked;
       job.stats.emailsFound = s.emailsFound;
       job.stats.elapsedMs = Date.now() - started;
-      job.persist();
     }
   });
   job.businesses = enriched;
@@ -205,7 +183,6 @@ export async function runJob(job) {
   job.stats.websitesChecked = enriched.filter((b) => b.website).length;
   stamp('ENRICHMENT');
   job.logPush(`Emails found for ${job.stats.emailsFound} / ${enriched.length} businesses.`);
-  await job.persistNow();
 
   // 3. Emails (optional)
   if (sendEmails) {
@@ -247,7 +224,7 @@ export async function runJob(job) {
 
   // 6. Persist dedup index so future runs skip already-saved businesses
   try {
-    await saveDedupIndexAsync(enriched);
+    await saveDedupIndex(enriched);
   } catch (e) {
     job.logPush(`Dedup index update skipped: ${e.message}`);
   }

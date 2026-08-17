@@ -8,10 +8,9 @@ const $ = (id) => document.getElementById(id);
 
 function setConfigNote() {
   const note = $('config-note');
-  const { kvConfigured, sheetsConfigured, nocodbConfigured, emailConfigured, emailSendWarning } = window.__health || {};
+  const { sheetsConfigured, nocodbConfigured, emailConfigured, emailSendWarning } = window.__health || {};
   const warnings = [];
   if (emailSendWarning) warnings.push(emailSendWarning);
-  if (kvConfigured === false) warnings.push('No Redis/KV connected — jobs run in memory and won\'t survive restarts. Connect Upstash Redis in Vercel.');
   if (nocodbConfigured === false) warnings.push('NocoDB not configured (NOCODB_URL / NOCODB_TOKEN / NOCODB_TABLE_ID).');
   if (sheetsConfigured === false) warnings.push('Google Sheets credentials missing — results will only be saved locally.');
   if (emailConfigured === false) warnings.push('Resend email credentials missing (RESEND_API_KEY / RESEND_FROM).');
@@ -47,7 +46,7 @@ async function init() {
   setConfigNote();
   const chip = $('status-chip');
   const dot = chip.querySelector('.dot');
-  if (health.sheetsConfigured && health.emailConfigured && health.kvConfigured) {
+  if (health.sheetsConfigured && health.emailConfigured) {
     chip.classList.add('ok');
     $('status-text').textContent = 'All systems ready';
   } else {

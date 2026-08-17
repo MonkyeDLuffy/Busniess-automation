@@ -44,18 +44,19 @@ Deploy with the **root directory set to `business-automation`**.
 
 1. **Push the project to GitHub**, then in Vercel: *Add New Project → Import* it,
    set **Root Directory** to `business-automation`.
-2. **Storage**: add the **Upstash Redis** integration from the Vercel Marketplace
-   (or a Vercel KV store) and link it to the project — this is what stores job
-   state between serverless invocations.
-3. **Environment variables** (Vercel → Settings → Environment Variables): add
+2. **Environment variables** (Vercel → Settings → Environment Variables): add
    `AUTH_SECRET`, `NOCODB_URL`, `NOCODB_TOKEN`, `NOCODB_TABLE_ID`, and the optional
    `GOOGLE_SERVICE_ACCOUNT_KEY`, `SPREADSHEET_ID`, `RESEND_API_KEY`, `RESEND_FROM`.
-4. **Deploy.** Sign in with one of the fixed users.
+3. **Deploy.** Sign in with one of the fixed users.
 
 ### Vercel limits — read this
 - `vercel.json` sets `maxDuration: 60s` (Hobby plan max). Larger searches that
   scrape + enrich many businesses can exceed this. On Pro you can raise it to
   `300` in `vercel.json`.
+- Job state is held in memory. It's fine on a single local server, but on Vercel
+  serverless a job may not be visible from another function instance and in-memory
+  jobs don't survive cold starts — treat the web UI there as best-effort. Results
+  always persist to NocoDB regardless of the UI.
 - The Playwright scraper runs inside the serverless function (Chromium is installed
   during build via the `postinstall` script). Google Maps scraping from serverless
   is best-effort: keep `maxResults` modest, and if you hit timeouts, run big

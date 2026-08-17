@@ -1,4 +1,3 @@
-import { google } from 'googleapis';
 import fs from 'node:fs';
 
 const HEADERS = [
@@ -17,7 +16,8 @@ const HEADERS = [
   'Sent At'
 ];
 
-function getAuth() {
+async function getAuth() {
+  const { google } = await import('googleapis');
   const keyFile = process.env.GOOGLE_SERVICE_ACCOUNT_KEY;
   if (!keyFile) {
     throw new Error('Google service account key not found. Set GOOGLE_SERVICE_ACCOUNT_KEY (see .env).');
