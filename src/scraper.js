@@ -5,6 +5,11 @@ process.env.PLAYWRIGHT_BROWSERS_PATH = process.env.PLAYWRIGHT_BROWSERS_PATH || '
 
 async function launchBrowser(headless) {
   const { chromium } = await import('playwright');
+  try {
+    return await chromium.launch({ headless });
+  } catch {
+    /* no bundled browser (Vercel) or missing deps — try fallbacks below */
+  }
   const sp = await trySparticuzBrowser();
   if (sp) {
     try {
@@ -15,13 +20,8 @@ async function launchBrowser(headless) {
       }
     }
   }
-  try {
-    return await chromium.launch({ headless });
-  } catch (err) {
-    if (process.env.VERCEL) throw err;
-    const { executablePath } = await downloadAndExtractBrowser();
-    return chromium.launch({ headless, executablePath });
-  }
+  const { executablePath } = await downloadAndExtractBrowser();
+  return chromium.launch({ headless, executablePath });
 }
 
 const UA =

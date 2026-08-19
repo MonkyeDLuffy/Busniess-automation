@@ -1,0 +1,36 @@
+services:
+  - type: web
+    name: business-automation
+    runtime: node
+    plan: free
+    buildCommand: npm ci && npx playwright install --with-deps chromium
+    startCommand: npm start
+    healthCheckPath: /api/health
+    autoDeploy: true
+    envVars:
+      - key: AUTH_SECRET
+        sync: false
+      - key: NOCODB_URL
+        sync: false
+      - key: NOCODB_TOKEN
+        sync: false
+      - key: NOCODB_BASE_ID
+        sync: false
+      - key: NOCODB_TABLE_ID
+        sync: false
+      - key: NOCODB_TABLE_NAME
+        sync: false
+      - key: RESEND_API_KEY
+        sync: false
+      - key: RESEND_FROM
+        sync: false
+      - key: UNSUBSCRIBE_URL
+        sync: false
+      - key: GOOGLE_SERVICE_ACCOUNT_KEY
+        sync: false
+      - key: SPREADSHEET_ID
+        sync: false
+      - key: SHEET_TAB
+        sync: false
+      - key: CONCURRENCY_LIMIT
+        value: 3

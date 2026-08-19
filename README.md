@@ -5,7 +5,25 @@ writes everything to NocoDB (and optionally Google Sheets), and sends automated
 outreach emails. Includes a password-protected admin web page to pick a location +
 business type and run a job.
 
-Runs either as a plain Node server (local) or as a Vercel serverless app.
+Runs either as a plain Node server (local), as a Vercel serverless app, or as a
+persistent web service on Render.
+
+## Deploying to Render (recommended — no 60s job limit)
+
+Vercel's free plan kills functions after 60 seconds, which caps a scrape at a few
+results. Render runs the app as a persistent process, so jobs can run for minutes.
+
+1. **Push the project to GitHub.**
+2. In Render: *New → Blueprint*, paste the GitHub repo, select
+   `business-automation`, and create. The `render.yaml` configures everything
+   (Node runtime, Playwright install, port, health check).
+3. **Environment variables** (Render → your service → Environment): set the ones
+   the blueprint left empty — `AUTH_SECRET`, `NOCODB_URL`, `NOCODB_TOKEN`,
+   `NOCODB_BASE_ID`, `NOCODB_TABLE_ID`, `NOCODB_TABLE_NAME`, and optional
+   `RESEND_*` / `GOOGLE_SERVICE_ACCOUNT_KEY` / `SPREADSHEET_ID` / `SHEET_TAB`.
+   (`GOOGLE_SERVICE_ACCOUNT_KEY` must be the JSON itself, not a file path.)
+4. **Deploy** — sign in with one of the fixed users and run a search. Jobs of
+   20-50 results now finish normally.
 
 ## Folder layout
 npm start        → runs the admin page at http://localhost:5050

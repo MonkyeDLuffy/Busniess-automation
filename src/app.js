@@ -11,6 +11,7 @@ import { saveJob, getJob, listJobs, isPersistentStoreConfigured } from './jobSto
 
 let waitUntilPromise = null;
 async function getWaitUntil() {
+  if (!process.env.VERCEL) return null;
   if (!waitUntilPromise) {
     waitUntilPromise = (async () => {
       try {
@@ -106,20 +107,6 @@ app.get('/api/me', (req, res) => {
 app.get('/api/health', (req, res) => {
   res.json({
     ok: true,
-    sheetsConfigured: isSheetsConfigured(),
-    nocodbConfigured: isNocodbConfigured(),
-    emailConfigured: isEmailConfigured(),
-    emailSendWarning: emailSendWarning()
-  });
-});
-
-app.get('/api/stats', (req, res) => {
-  res.json(getStats());
-});
-
-app.get('/api/health', (req, res) => {
-  res.json({
-    ok: true,
     env: {
       node: process.version,
       vercel: !!process.env.VERCEL,
@@ -127,8 +114,13 @@ app.get('/api/health', (req, res) => {
       sheets: isSheetsConfigured(),
       email: isEmailConfigured(),
       jobStorePersistent: isPersistentStoreConfigured()
-    }
+    },
+    emailSendWarning: emailSendWarning()
   });
+});
+
+app.get('/api/stats', (req, res) => {
+  res.json(getStats());
 });
 
 app.post('/api/responses', (req, res) => {
