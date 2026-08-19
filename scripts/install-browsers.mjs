@@ -2,6 +2,10 @@ import { spawn } from 'node:child_process';
 import path from 'node:path';
 import { createRequire } from 'node:module';
 
+if (process.env.VERCEL) {
+  process.exit(0);
+}
+
 const require = createRequire(import.meta.url);
 const cliPath = path.join(path.dirname(require.resolve('playwright')), 'cli.js');
 

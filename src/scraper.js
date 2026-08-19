@@ -10,12 +10,15 @@ async function launchBrowser(headless) {
     try {
       return await chromium.launch({ headless, executablePath: sp.executablePath, args: sp.args });
     } catch (err) {
-      /* fall through to bundled / fetch fallback */
+      if (process.env.VERCEL) {
+        throw new Error(`Chromium (sparticuz) failed on Vercel: ${err.message}`);
+      }
     }
   }
   try {
     return await chromium.launch({ headless });
   } catch (err) {
+    if (process.env.VERCEL) throw err;
     const { executablePath } = await downloadAndExtractBrowser();
     return chromium.launch({ headless, executablePath });
   }
