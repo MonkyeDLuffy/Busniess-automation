@@ -70,8 +70,7 @@ export async function downloadAndExtractBrowser() {
     if (!fs.existsSync(executablePath)) {
       throw new Error(`Chromium extracted but executable missing: ${executablePath}`);
     }
-    chmodTree(browserDir, executablePath);
-    fs.writeFileSync(path.join(browserDir, 'INSTALLATION_COMPLETE'), '');
   }
+  chmodTree(browserDir, executablePath);
   return { executablePath, browsersPath: browsersDir };
 }
