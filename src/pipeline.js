@@ -1,6 +1,5 @@
 import fs from 'node:fs';
 import path from 'node:path';
-import { fileURLToPath } from 'node:url';
 import { scrapeGoogleMaps } from './scraper.js';
 import { enrichBusinesses } from './emailFinder.js';
 import { appendBusinesses } from './sheets.js';
@@ -8,9 +7,8 @@ import { appendBusinessesToNocodb, isNocodbConfigured } from './nocodb.js';
 import { sendOutreachToAll, emailSendWarning } from './emailSender.js';
 import { createDeduplicator, loadKnownFingerprints, saveDedupIndex } from './dedupe.js';
 import { startRun as statsStartRun, completeRun as statsCompleteRun } from './stats.js';
+import DATA_DIR from './dataDir.js';
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const DATA_DIR = path.resolve(__dirname, '../data');
 const CONCURRENCY = Number(process.env.CONCURRENCY_LIMIT || 5);
 
 export function saveResults(jobId, businesses) {

@@ -1,9 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
-import { fileURLToPath } from 'node:url';
+import DATA_DIR from './dataDir.js';
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const DATA_DIR = path.resolve(__dirname, '../data');
 const INDEX_FILE = path.join(DATA_DIR, 'dedup-index.json');
 
 export function normalizeText(s) {
