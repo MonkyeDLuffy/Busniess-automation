@@ -7,6 +7,7 @@ import { isEmailConfigured, emailSendWarning, sendOutreachToAll } from './emailS
 import { isNocodbConfigured } from './nocodb.js';
 import { isValidUser, issueToken, verifyToken, parseCookies } from './auth.js';
 import { getStats, recordResponse } from './stats.js';
+import { saveJob, getJob, listJobs } from './jobStore.js';
 
 let waitUntilPromise = null;
 async function getWaitUntil() {
@@ -25,6 +26,20 @@ async function getWaitUntil() {
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const jobs = new Map();
+
+async function resolveJob(id) {
+  const local = jobs.get(id);
+  if (local) return local;
+  const remote = await getJob(id);
+  if (remote) {
+    remote.logPush = (m) => {
+      remote.log = remote.log || [];
+      remote.log.push(`[${new Date().toLocaleTimeString()}] ${m}`);
+    };
+    jobs.set(id, remote);
+  }
+  return remote || null;
+}
 
 export const app = express();
 app.use(express.json());
@@ -130,6 +145,7 @@ app.post('/api/jobs', async (req, res) => {
   }
   const job = createJob(opts);
   jobs.set(job.id, job);
+  saveJob(job).catch(() => {});
   const run = runJob(job).catch((e) => {
     job.state = 'error';
     job.error = e.stack || e.message;
@@ -144,24 +160,31 @@ app.post('/api/jobs', async (req, res) => {
   res.json({ id: job.id, state: job.state });
 });
 
-app.get('/api/jobs', (req, res) => {
-  res.json([...jobs.values()].map(publicJob));
+app.get('/api/jobs', async (req, res) => {
+  const remote = await listJobs();
+  const seen = new Set();
+  const all = [...jobs.values(), ...remote].filter((j) => {
+    if (seen.has(j.id)) return false;
+    seen.add(j.id);
+    return true;
+  });
+  res.json(all.map(publicJob));
 });
 
-app.get('/api/jobs/:id', (req, res) => {
-  const job = jobs.get(req.params.id);
+app.get('/api/jobs/:id', async (req, res) => {
+  const job = await resolveJob(req.params.id);
   if (!job) return res.status(404).json({ error: 'Job not found' });
   res.json(publicJob(job));
 });
 
-app.post('/api/jobs/:id/export', (req, res) => {
-  const job = jobs.get(req.params.id);
+app.post('/api/jobs/:id/export', async (req, res) => {
+  const job = await resolveJob(req.params.id);
   if (!job) return res.status(404).json({ error: 'Job not found' });
   res.json({ businesses: job.businesses || [] });
 });
 
 app.post('/api/jobs/:id/send-emails', async (req, res) => {
-  const job = jobs.get(req.params.id);
+  const job = await resolveJob(req.params.id);
   if (!job) return res.status(404).json({ error: 'Job not found' });
   if (!isEmailConfigured()) {
     return res.status(400).json({ error: 'Email sending not configured (RESEND_API_KEY / RESEND_FROM).' });

@@ -7,6 +7,7 @@ import { appendBusinessesToNocodb, isNocodbConfigured } from './nocodb.js';
 import { sendOutreachToAll, emailSendWarning } from './emailSender.js';
 import { createDeduplicator, loadKnownFingerprints, saveDedupIndex } from './dedupe.js';
 import { startRun as statsStartRun, completeRun as statsCompleteRun } from './stats.js';
+import { saveJob } from './jobStore.js';
 import DATA_DIR from './dataDir.js';
 
 const CONCURRENCY = Number(process.env.CONCURRENCY_LIMIT || 5);
@@ -56,7 +57,7 @@ function serializeJob(job) {
 }
 
 export function createJob(opts) {
-  const job = {
+  const base = {
     id: `job_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
     state: 'idle',
     log: [],
@@ -65,10 +66,26 @@ export function createJob(opts) {
     stats: {},
     options: { ...opts }
   };
-  job.logPush = (m) => {
-    job.log.push(`[${new Date().toLocaleTimeString()}] ${m}`);
+  let lastPersist = 0;
+  const persist = (force = false) => {
+    const now = Date.now();
+    if (!force && now - lastPersist < 300) return;
+    lastPersist = now;
+    saveJob(base).catch(() => {});
   };
-  job.serialize = () => serializeJob(job);
+  base.logPush = (m) => {
+    base.log.push(`[${new Date().toLocaleTimeString()}] ${m}`);
+    persist();
+  };
+  base.serialize = () => serializeJob(base);
+  const job = new Proxy(base, {
+    set(target, prop, value) {
+      target[prop] = value;
+      persist();
+      return true;
+    }
+  });
+  job.persist = persist;
   return job;
 }
 
@@ -119,6 +136,7 @@ export async function runJob(job) {
     timing: timings
   };
   statsStartRun(job);
+  job.persist?.();
   const query = (businessType && location) ? `${businessType} in ${location}` : businessType || location;
   job.logPush(`Pipeline started: "${query}" (target ${maxResults} unique businesses)`);
 
@@ -150,6 +168,7 @@ export async function runJob(job) {
         job.stats.completed = s.uniqueBusinesses;
         job.stats.failures = s.detailFailures || 0;
         job.stats.elapsedMs = Date.now() - started;
+        job.persist?.();
       }
     });
     job.stats.candidatesFound = Math.max(job.stats.candidatesFound, items.stats?.candidatesFound || items.length);
@@ -158,6 +177,7 @@ export async function runJob(job) {
     job.stats.completed = items.length;
     job.logPush(`Scraped ${items.length} unique businesses (${job.stats.candidatesFound} candidates, ${job.stats.duplicatesSkipped} duplicates skipped).`);
     stamp('DISCOVERY');
+    job.persist?.();
 
     if (!items.length) {
       job.stats.elapsedMs = Date.now() - started;
@@ -177,6 +197,7 @@ export async function runJob(job) {
         job.stats.websitesChecked = s.websitesChecked;
         job.stats.emailsFound = s.emailsFound;
         job.stats.elapsedMs = Date.now() - started;
+        job.persist?.();
       }
     });
     job.businesses = enriched;
@@ -184,6 +205,7 @@ export async function runJob(job) {
     job.stats.websitesChecked = enriched.filter((b) => b.website).length;
     stamp('ENRICHMENT');
     job.logPush(`Emails found for ${job.stats.emailsFound} / ${enriched.length} businesses.`);
+    job.persist?.();
 
     // 3. Emails (optional)
     if (sendEmails) {
@@ -241,5 +263,6 @@ export async function runJob(job) {
   } finally {
     job.stats.elapsedMs = Date.now() - started;
     statsCompleteRun(job);
+    job.persist?.(true);
   }
 }
