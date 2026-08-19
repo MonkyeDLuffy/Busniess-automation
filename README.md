@@ -57,10 +57,10 @@ Deploy with the **root directory set to `business-automation`**.
 - `vercel.json` sets `maxDuration: 60s` (Hobby plan max). Larger searches that
   scrape + enrich many businesses can exceed this. On Pro you can raise it to
   `300` in `vercel.json`.
-- Job state is held in memory. It's fine on a single local server, but on Vercel
-  serverless a job may not be visible from another function instance and in-memory
-  jobs don't survive cold starts — treat the web UI there as best-effort. Results
-  always persist to NocoDB regardless of the UI.
+- Job state is persisted to a `JobRuns` tab in the same Google Spreadsheet used for
+  results, so the dashboard can follow a job across any Vercel function instance
+  (no Redis needed). Job state is best-effort if Google Sheets isn't configured;
+  results always persist to NocoDB regardless of the UI.
 - If Google Maps scraping from serverless is still too slow or flaky, keep
   `maxResults` modest and run big searches locally with `npm start` instead —
   results still land in NocoDB.

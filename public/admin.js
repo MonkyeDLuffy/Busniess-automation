@@ -275,8 +275,17 @@ function startPolling() {
   const url = `/api/jobs/${state.currentJob}`;
   state.polling = setInterval(async () => {
     const res = await fetch(url);
+    if (!res.ok) return;
     const job = await res.json();
-    if (!job) return;
+    if (!job || !job.id) return;
+    const maxAge = 90 * 1000;
+    const lastUpdate = Date.parse(job.updatedAt) || Date.now();
+    if (job.state === 'running' && Date.now() - lastUpdate > maxAge) {
+      job.state = 'error';
+      job.error = 'Timed out: the job exceeded the Vercel free-tier 60s limit. Reduce maxResults or retry.';
+      clearInterval(state.polling);
+      state.polling = null;
+    }
     renderJob(job);
     loadStats();
     if (job.state === 'done' || job.state === 'error') {

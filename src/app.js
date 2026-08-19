@@ -64,7 +64,8 @@ function publicJob(job) {
     log: job.log || [],
     businesses: job.businesses || [],
     stats: job.stats || {},
-    error: job.error || null
+    error: job.error || null,
+    updatedAt: job.updatedAt || null
   };
 }
 

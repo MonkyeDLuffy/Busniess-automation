@@ -47,7 +47,7 @@ export function isSheetsConfigured() {
   return !!(process.env.SPREADSHEET_ID && process.env.GOOGLE_SERVICE_ACCOUNT_KEY);
 }
 
-async function getSheets() {
+export async function getSheets() {
   const auth = await getAuth();
   return google.sheets({ version: 'v4', auth });
 }

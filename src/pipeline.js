@@ -52,7 +52,8 @@ function serializeJob(job) {
     log: job.log,
     businesses: job.businesses,
     stats: job.stats,
-    error: job.error
+    error: job.error,
+    updatedAt: new Date().toISOString()
   };
 }
 
@@ -67,11 +68,13 @@ export function createJob(opts) {
     options: { ...opts }
   };
   let lastPersist = 0;
+  let writeChain = Promise.resolve();
   const persist = (force = false) => {
     const now = Date.now();
-    if (!force && now - lastPersist < 300) return;
+    if (!force && now - lastPersist < 2000) return writeChain;
     lastPersist = now;
-    saveJob(base).catch(() => {});
+    writeChain = writeChain.then(() => saveJob(base)).catch(() => {});
+    return writeChain;
   };
   base.logPush = (m) => {
     base.log.push(`[${new Date().toLocaleTimeString()}] ${m}`);
@@ -81,7 +84,7 @@ export function createJob(opts) {
   const job = new Proxy(base, {
     set(target, prop, value) {
       target[prop] = value;
-      persist();
+      if (prop !== 'persist') persist();
       return true;
     }
   });
