@@ -6,6 +6,7 @@ import { isSheetsConfigured } from './sheets.js';
 import { isEmailConfigured, emailSendWarning, sendOutreachToAll } from './emailSender.js';
 import { isNocodbConfigured } from './nocodb.js';
 import { isValidUser, issueToken, verifyToken, parseCookies } from './auth.js';
+import { getStats, recordResponse } from './stats.js';
 
 let waitUntilPromise = null;
 async function getWaitUntil() {
@@ -80,6 +81,12 @@ app.post('/api/logout', (req, res) => {
 
 app.use('/api', requireAuth);
 
+app.get('/api/me', (req, res) => {
+  const username = getSessionUser(req);
+  if (!username) return res.status(401).json({ error: 'Unauthorized' });
+  res.json({ username });
+});
+
 app.get('/api/health', (req, res) => {
   res.json({
     ok: true,
@@ -88,6 +95,22 @@ app.get('/api/health', (req, res) => {
     emailConfigured: isEmailConfigured(),
     emailSendWarning: emailSendWarning()
   });
+});
+
+app.get('/api/stats', (req, res) => {
+  res.json(getStats());
+});
+
+app.post('/api/responses', (req, res) => {
+  const email = String(req.body.email || '').trim();
+  const name = String(req.body.name || '').trim();
+  const type = String(req.body.type || 'reply').trim();
+  const note = String(req.body.note || '').trim();
+  if (!email && !name) {
+    return res.status(400).json({ error: 'Provide at least a contact name or email.' });
+  }
+  const r = recordResponse({ email, name, type, note });
+  res.json({ ok: true, id: r.id });
 });
 
 app.post('/api/jobs', async (req, res) => {

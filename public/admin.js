@@ -6,6 +6,44 @@ const state = {
 
 const $ = (id) => document.getElementById(id);
 
+const USER_THEMES = {
+  Earth: { accent: '#8fb4ff', accentSoft: '#b9cdf2' },
+  Nikhil: { accent: '#7ee6a8', accentSoft: '#aef0c7' },
+  Aadarsh: { accent: '#ff9a76', accentSoft: '#ffc2a8' }
+};
+
+function applyUserTheme(username) {
+  const theme = USER_THEMES[username] || { accent: '#8fb4ff', accentSoft: '#b9cdf2' };
+  const root = document.documentElement;
+  root.style.setProperty('--blue', theme.accent);
+  root.style.setProperty('--soft-blue', theme.accentSoft);
+  const avatar = $('userAvatar');
+  avatar.style.background = `linear-gradient(135deg, ${theme.accent}, ${theme.accentSoft})`;
+  const mark = $('brandMark');
+  mark.style.background = `linear-gradient(135deg, ${theme.accent}, ${theme.accentSoft})`;
+}
+
+async function loadUser() {
+  try {
+    const res = await fetch('/api/me');
+    if (res.status === 401) {
+      window.location.href = '/login.html';
+      return;
+    }
+    const data = await res.json();
+    const username = data.username;
+    $('userName').textContent = username;
+    $('userAvatar').textContent = username.charAt(0).toUpperCase();
+    $('userLabel').textContent = 'Dashboard';
+    $('dashboardTitle').textContent = `${username}'s Dashboard`;
+    $('dashboardSub').textContent = `Local business outreach console`;
+    document.title = `${username}'s Dashboard — Business Finder`;
+    applyUserTheme(username);
+  } catch {
+    $('userLabel').textContent = 'Offline';
+  }
+}
+
 function setConfigNote() {
   const note = $('config-note');
   const { sheetsConfigured, nocodbConfigured, emailConfigured, emailSendWarning } = window.__health || {};
@@ -36,6 +74,7 @@ function renderStats(job) {
 }
 
 async function init() {
+  await loadUser();
   const res = await fetch('/api/health');
   if (res.status === 401) {
     window.location.href = '/login.html';
@@ -62,6 +101,133 @@ async function init() {
   $('sendBtn').addEventListener('click', sendEmails);
   $('exportBtn').addEventListener('click', exportJson);
   $('logoutBtn').addEventListener('click', logout);
+  $('refreshStatsBtn').addEventListener('click', loadStats);
+  $('responseForm').addEventListener('submit', logResponse);
+  loadStats();
+}
+
+async function loadStats() {
+  try {
+    const res = await fetch('/api/stats');
+    if (res.status === 401) return;
+    const data = await res.json();
+    renderDashboard(data);
+  } catch {
+    /* dashboard is best-effort */
+  }
+}
+
+function renderDashboard(d) {
+  const t = d.totals || {};
+  const num = (n) => Number(n || 0).toLocaleString();
+  $('dash-runs').textContent = num(t.runs);
+  $('dash-unique').textContent = num(t.uniqueBusinesses);
+  $('dash-emails-found').textContent = num(t.emailsFound);
+  $('dash-emails-sent').textContent = num(t.emailsSent);
+  $('dash-failures').textContent = num(t.emailFailures);
+  $('dash-responses').textContent = num(t.responses);
+  $('dash-rate').textContent = `${t.responseRate ?? 0}%`;
+  renderRuns(d.history || []);
+  renderSends(d.sends || []);
+  renderResponses(d.responses || []);
+}
+
+function renderRuns(history) {
+  const body = $('dashRunsBody');
+  if (!history.length) {
+    body.innerHTML = `<tr class="empty"><td colspan="7">No runs yet — start your first search.</td></tr>`;
+    return;
+  }
+  body.innerHTML = history
+    .slice(0, 12)
+    .map((h) => {
+      const when = h.finishedAt || h.startedAt;
+      const date = when ? new Date(when).toLocaleString() : '—';
+      const state = h.state || '—';
+      const cls = state === 'done' ? 'ok' : state === 'error' ? 'bad' : '';
+      return `<tr>
+        <td>${escapeHtml(date)}</td>
+        <td class="bname">${escapeHtml(h.query || '—')}</td>
+        <td><span class="pill ${cls}">${escapeHtml(state)}</span></td>
+        <td>${Number(h.uniqueBusinesses ?? h.candidatesFound ?? 0).toLocaleString()}</td>
+        <td>${Number(h.emailsFound ?? 0).toLocaleString()}</td>
+        <td>${Number(h.emailsSent ?? 0).toLocaleString()}</td>
+        <td>${Number(h.sheetRows ?? 0).toLocaleString()}</td>
+      </tr>`;
+    })
+    .join('');
+}
+
+function renderSends(sends) {
+  const body = $('dashSendsBody');
+  if (!sends.length) {
+    body.innerHTML = `<tr class="empty"><td colspan="4">No email sends recorded yet.</td></tr>`;
+    return;
+  }
+  body.innerHTML = sends
+    .slice(0, 10)
+    .map((s) => {
+      const date = s.sentAt ? new Date(s.sentAt).toLocaleString() : '—';
+      const ok = s.result === 'sent';
+      return `<tr>
+        <td>${escapeHtml(date)}</td>
+        <td>${escapeHtml(s.name || '')}</td>
+        <td>${escapeHtml(s.to || '')}</td>
+        <td><span class="pill ${ok ? 'ok' : 'bad'}">${ok ? 'sent' : 'failed'}</span></td>
+      </tr>`;
+    })
+    .join('');
+}
+
+function renderResponses(responses) {
+  const list = $('respList');
+  if (!responses.length) {
+    list.innerHTML = `<li class="resp-empty">No responses logged yet — add one when a lead replies.</li>`;
+    return;
+  }
+  list.innerHTML = responses
+    .slice(0, 12)
+    .map((r) => {
+      const date = r.at ? new Date(r.at).toLocaleString() : '—';
+      const good = ['positive', 'callback', 'meeting'].includes(r.type);
+      return `<li class="resp-item">
+        <div class="resp-top">
+          <span class="resp-who"><strong>${escapeHtml(r.name || r.email || 'Anonymous')}</strong>${r.email ? ` &lt;${escapeHtml(r.email)}&gt;` : ''}</span>
+          <span class="pill ${good ? 'ok' : ''}">${escapeHtml(r.type || 'reply')}</span>
+        </div>
+        ${r.note ? `<div class="resp-note">${escapeHtml(r.note)}</div>` : ''}
+        <div class="resp-date">${escapeHtml(date)}</div>
+      </li>`;
+    })
+    .join('');
+}
+
+async function logResponse(evt) {
+  evt.preventDefault();
+  const body = {
+    name: $('respName').value.trim(),
+    email: $('respEmail').value.trim(),
+    type: $('respType').value,
+    note: $('respNote').value.trim()
+  };
+  if (!body.name && !body.email) {
+    alert('Enter a contact name or email.');
+    return;
+  }
+  const res = await fetch('/api/responses', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body)
+  });
+  const data = await res.json();
+  if (!res.ok) {
+    alert(data.error || 'Failed to log response');
+    return;
+  }
+  $('respName').value = '';
+  $('respEmail').value = '';
+  $('respNote').value = '';
+  loadStats();
 }
 
 async function logout() {
@@ -112,6 +278,7 @@ function startPolling() {
     const job = await res.json();
     if (!job) return;
     renderJob(job);
+    loadStats();
     if (job.state === 'done' || job.state === 'error') {
       clearInterval(state.polling);
       state.polling = null;

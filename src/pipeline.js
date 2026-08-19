@@ -7,6 +7,7 @@ import { appendBusinesses } from './sheets.js';
 import { appendBusinessesToNocodb, isNocodbConfigured } from './nocodb.js';
 import { sendOutreachToAll, emailSendWarning } from './emailSender.js';
 import { createDeduplicator, loadKnownFingerprints, saveDedupIndex } from './dedupe.js';
+import { startRun as statsStartRun, completeRun as statsCompleteRun } from './stats.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const DATA_DIR = path.resolve(__dirname, '../data');
@@ -119,6 +120,7 @@ export async function runJob(job) {
     elapsedMs: 0,
     timing: timings
   };
+  statsStartRun(job);
   const query = (businessType && location) ? `${businessType} in ${location}` : businessType || location;
   job.logPush(`Pipeline started: "${query}" (target ${maxResults} unique businesses)`);
 
@@ -128,109 +130,118 @@ export async function runJob(job) {
     job.logPush(`[${name}] ${(ms / 1000).toFixed(1)}s`);
   };
 
-  // 1. Discover unique businesses
-  timings.DISCOVERY = Date.now();
-  job.logPush('Scraping Google Maps…');
-  const known = skipKnown ? loadKnownFingerprints() : new Map();
-  const dedup = createDeduplicator({ known });
-  if (skipKnown) job.logPush(`Loaded ${dedup.size} previously-saved business fingerprints.`);
-
-  const items = await scrapeGoogleMaps({
-    query,
-    maxResults,
-    headless,
-    concurrency: concurrency || CONCURRENCY,
-    onLog: (m) => job.logPush(m),
-    deduplicator: dedup,
-    onProgress: (s) => {
-      job.stats.candidatesFound = s.candidatesFound;
-      job.stats.duplicatesSkipped = s.duplicatesSkipped;
-      job.stats.uniqueBusinesses = s.uniqueBusinesses;
-      job.stats.completed = s.uniqueBusinesses;
-      job.stats.failures = s.detailFailures || 0;
-      job.stats.elapsedMs = Date.now() - started;
-    }
-  });
-  job.stats.candidatesFound = Math.max(job.stats.candidatesFound, items.stats?.candidatesFound || items.length);
-  job.stats.duplicatesSkipped = Math.max(job.stats.duplicatesSkipped, items.stats?.duplicatesSkipped || 0);
-  job.stats.uniqueBusinesses = items.length;
-  job.stats.completed = items.length;
-  job.logPush(`Scraped ${items.length} unique businesses (${job.stats.candidatesFound} candidates, ${job.stats.duplicatesSkipped} duplicates skipped).`);
-  stamp('DISCOVERY');
-
-  if (!items.length) {
-    job.stats.elapsedMs = Date.now() - started;
-    job.state = 'done';
-    job.stats.phase = 'done';
-    job.logPush('No results found.');
-    return;
-  }
-
-  // 2. Enrich: website status + emails
-  job.stats.phase = 'enrichment';
-  timings.ENRICHMENT = Date.now();
-  job.logPush('Checking websites & finding emails…');
-  const enriched = await enrichBusinesses(items, (m) => job.logPush(m), {
-    concurrency: concurrency || CONCURRENCY,
-    onProgress: (s) => {
-      job.stats.websitesChecked = s.websitesChecked;
-      job.stats.emailsFound = s.emailsFound;
-      job.stats.elapsedMs = Date.now() - started;
-    }
-  });
-  job.businesses = enriched;
-  job.stats.emailsFound = enriched.filter((b) => b.email).length;
-  job.stats.websitesChecked = enriched.filter((b) => b.website).length;
-  stamp('ENRICHMENT');
-  job.logPush(`Emails found for ${job.stats.emailsFound} / ${enriched.length} businesses.`);
-
-  // 3. Emails (optional)
-  if (sendEmails) {
-    job.logPush('Sending outreach emails…');
-    const warn = emailSendWarning?.();
-    if (warn) job.logPush(`EMAIL WARNING: ${warn}`);
-    const r = await sendOutreachToAll(enriched, (m) => job.logPush(m));
-    job.stats.emailsSent = r.sent;
-    job.stats.emailsFailed = r.failed.length;
-    job.logPush(`Done sending: ${r.sent} sent, ${r.failed.length} failed.`);
-  }
-
-  // 4. Google Sheets (optional)
-  if (writeSheet) {
-    try {
-      job.logPush('Writing to Google Sheets…');
-      const r = await appendBusinesses(enriched);
-      job.stats.sheetRows = r.inserted;
-      job.stats.sheetRange = r.range;
-      job.logPush(`Wrote ${r.inserted} rows to sheet.`);
-    } catch (e) {
-      job.stats.sheetRows = 0;
-      job.logPush(`Sheets write skipped: ${e.message}`);
-    }
-  }
-
-  // 5. NocoDB (append — never deletes or overwrites existing rows)
-  if (writeNocodb) {
-    try {
-      job.logPush('Pushing to NocoDB…');
-      const r = await appendBusinessesToNocodb(enriched, (m) => job.logPush(m));
-      job.stats.nocodbRows = r.inserted;
-      job.logPush(`Appended ${r.inserted} rows to NocoDB.`);
-    } catch (e) {
-      job.stats.nocodbRows = 0;
-      job.logPush(`NocoDB write failed: ${e.message}`);
-    }
-  }
-
-  // 6. Persist dedup index so future runs skip already-saved businesses
   try {
-    await saveDedupIndex(enriched);
-  } catch (e) {
-    job.logPush(`Dedup index update skipped: ${e.message}`);
-  }
+    // 1. Discover unique businesses
+    timings.DISCOVERY = Date.now();
+    job.logPush('Scraping Google Maps…');
+    const known = skipKnown ? loadKnownFingerprints() : new Map();
+    const dedup = createDeduplicator({ known });
+    if (skipKnown) job.logPush(`Loaded ${dedup.size} previously-saved business fingerprints.`);
 
-  job.stats.elapsedMs = Date.now() - started;
-  job.stats.phase = 'done';
-  job.state = 'done';
-  job.logPush(`Done ✓ (${(job.stats.elapsedMs / 1000).toFixed(1)}s)`);
+    const items = await scrapeGoogleMaps({
+      query,
+      maxResults,
+      headless,
+      concurrency: concurrency || CONCURRENCY,
+      onLog: (m) => job.logPush(m),
+      deduplicator: dedup,
+      onProgress: (s) => {
+        job.stats.candidatesFound = s.candidatesFound;
+        job.stats.duplicatesSkipped = s.duplicatesSkipped;
+        job.stats.uniqueBusinesses = s.uniqueBusinesses;
+        job.stats.completed = s.uniqueBusinesses;
+        job.stats.failures = s.detailFailures || 0;
+        job.stats.elapsedMs = Date.now() - started;
+      }
+    });
+    job.stats.candidatesFound = Math.max(job.stats.candidatesFound, items.stats?.candidatesFound || items.length);
+    job.stats.duplicatesSkipped = Math.max(job.stats.duplicatesSkipped, items.stats?.duplicatesSkipped || 0);
+    job.stats.uniqueBusinesses = items.length;
+    job.stats.completed = items.length;
+    job.logPush(`Scraped ${items.length} unique businesses (${job.stats.candidatesFound} candidates, ${job.stats.duplicatesSkipped} duplicates skipped).`);
+    stamp('DISCOVERY');
+
+    if (!items.length) {
+      job.stats.elapsedMs = Date.now() - started;
+      job.state = 'done';
+      job.stats.phase = 'done';
+      job.logPush('No results found.');
+      return;
+    }
+
+    // 2. Enrich: website status + emails
+    job.stats.phase = 'enrichment';
+    timings.ENRICHMENT = Date.now();
+    job.logPush('Checking websites & finding emails…');
+    const enriched = await enrichBusinesses(items, (m) => job.logPush(m), {
+      concurrency: concurrency || CONCURRENCY,
+      onProgress: (s) => {
+        job.stats.websitesChecked = s.websitesChecked;
+        job.stats.emailsFound = s.emailsFound;
+        job.stats.elapsedMs = Date.now() - started;
+      }
+    });
+    job.businesses = enriched;
+    job.stats.emailsFound = enriched.filter((b) => b.email).length;
+    job.stats.websitesChecked = enriched.filter((b) => b.website).length;
+    stamp('ENRICHMENT');
+    job.logPush(`Emails found for ${job.stats.emailsFound} / ${enriched.length} businesses.`);
+
+    // 3. Emails (optional)
+    if (sendEmails) {
+      job.logPush('Sending outreach emails…');
+      const warn = emailSendWarning?.();
+      if (warn) job.logPush(`EMAIL WARNING: ${warn}`);
+      const r = await sendOutreachToAll(enriched, (m) => job.logPush(m));
+      job.stats.emailsSent = r.sent;
+      job.stats.emailsFailed = r.failed.length;
+      job.logPush(`Done sending: ${r.sent} sent, ${r.failed.length} failed.`);
+    }
+
+    // 4. Google Sheets (optional)
+    if (writeSheet) {
+      try {
+        job.logPush('Writing to Google Sheets…');
+        const r = await appendBusinesses(enriched);
+        job.stats.sheetRows = r.inserted;
+        job.stats.sheetRange = r.range;
+        job.logPush(`Wrote ${r.inserted} rows to sheet.`);
+      } catch (e) {
+        job.stats.sheetRows = 0;
+        job.logPush(`Sheets write skipped: ${e.message}`);
+      }
+    }
+
+    // 5. NocoDB (append — never deletes or overwrites existing rows)
+    if (writeNocodb) {
+      try {
+        job.logPush('Pushing to NocoDB…');
+        const r = await appendBusinessesToNocodb(enriched, (m) => job.logPush(m));
+        job.stats.nocodbRows = r.inserted;
+        job.logPush(`Appended ${r.inserted} rows to NocoDB.`);
+      } catch (e) {
+        job.stats.nocodbRows = 0;
+        job.logPush(`NocoDB write failed: ${e.message}`);
+      }
+    }
+
+    // 6. Persist dedup index so future runs skip already-saved businesses
+    try {
+      await saveDedupIndex(enriched);
+    } catch (e) {
+      job.logPush(`Dedup index update skipped: ${e.message}`);
+    }
+
+    job.stats.elapsedMs = Date.now() - started;
+    job.stats.phase = 'done';
+    job.state = 'done';
+    job.logPush(`Done ✓ (${(job.stats.elapsedMs / 1000).toFixed(1)}s)`);
+  } catch (e) {
+    job.state = 'error';
+    job.error = e.stack || e.message;
+    throw e;
+  } finally {
+    job.stats.elapsedMs = Date.now() - started;
+    statsCompleteRun(job);
+  }
 }

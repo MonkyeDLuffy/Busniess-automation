@@ -2,6 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { Resend } from 'resend';
+import { recordEmailSend, recordEmailFailure } from './stats.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const CARD_PATH = path.resolve(__dirname, '../../1.png');
@@ -63,13 +64,15 @@ const HTML_TEMPLATE = ({ name, unsub, card, variant }) => {
     ? `<p>We've taken a quick look at your website${name ? ` for ${name}` : ''} and, for the
     current market trends, your website isn't suited well to help you grow — it may be holding
     your business back from new customers.</p>
-    <p>Don't worry — it's a quick fix. If you're interested, just reply to this email and we'll
-    create a <strong>free demo website</strong> for you to see the difference.</p>`
+    <p>Don't worry — it's a quick fix. If you're interested, just reply with your
+    <strong>shop name</strong> to this email (vadukiyaearth@gmail.com) and we'll send you a
+    <strong>free demo website</strong> to see the difference.</p>`
     : `<p>We're reaching out because we think your business could benefit from
     having a stronger local presence online — a modern, fast website and
     better visibility so local customers can find you more easily.</p>
-    <p>Would you have 15 minutes this week for a quick chat? No pressure at all —
-    we'd love to learn a little about what you do.</p>`;
+    <p>If you're interested, just reply with your <strong>shop name</strong> to this email
+    (vadukiyaearth@gmail.com) and we'll send you a <strong>free demo website</strong>.
+    No pressure at all — we'd love to learn a little about what you do.</p>`;
   return `
   <div style="font-family:Arial,Helvetica,sans-serif;max-width:580px;margin:0 auto;color:#1a1a1a;line-height:1.6">
     <h2 style="color:#111">Hello${name ? ` ${name}` : ''},</h2>
@@ -92,6 +95,7 @@ export async function sendOutreachEmail({ to, name, hasWebsite = false }) {
   const res = await client.emails.send({
     from: process.env.RESEND_FROM,
     to,
+    reply_to: 'vadukiyaearth@gmail.com',
     subject: SUBJECT(name, hasWebsite),
     html: HTML_TEMPLATE({ name, unsub, card: card ? card.contentId : null, variant: hasWebsite ? 'website' : 'general' }),
     ...(card ? { attachments: [card] } : {})
@@ -114,9 +118,11 @@ export async function sendOutreachToAll(businesses, onLog) {
         b.emailSent = true;
         b.sentAt = new Date().toISOString();
         sent++;
+        recordEmailSend({ to: b.email, name: b.name, id: r.id });
         onLog?.(`  ✓ sent to ${b.email} (${r.id})`);
       } catch (e) {
         failed.push({ name: b.name, email: b.email, error: e.message });
+        recordEmailFailure({ to: b.email, name: b.name, error: e.message });
         onLog?.(`  ✗ failed ${b.email}: ${e.message}`);
       }
     }

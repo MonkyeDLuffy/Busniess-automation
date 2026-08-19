@@ -9,17 +9,26 @@
 <body>
   <header class="topbar">
     <div class="brand">
-      <span class="brand-mark">N</span>
+      <span class="brand-mark" id="brandMark">N</span>
       <div>
-        <h1>Business Finder</h1>
-        <p>Local business outreach console</p>
+        <h1 id="dashboardTitle">Business Finder</h1>
+        <p id="dashboardSub">Local business outreach console</p>
       </div>
     </div>
-    <div class="status-chip" id="status-chip">
-      <span class="dot"></span>
-      <span id="status-text">Checking…</span>
+    <div class="topbar-right">
+      <div class="user-chip" id="user-chip">
+        <span class="user-avatar" id="userAvatar">E</span>
+        <div class="user-meta">
+          <span class="user-name" id="userName">—</span>
+          <span class="user-label" id="userLabel">Loading…</span>
+        </div>
+      </div>
+      <div class="status-chip" id="status-chip">
+        <span class="dot"></span>
+        <span id="status-text">Checking…</span>
+      </div>
+      <button id="logoutBtn" class="logout-btn">Sign out</button>
     </div>
-    <button id="logoutBtn" class="logout-btn">Sign out</button>
   </header>
 
   <main class="grid">
@@ -96,6 +105,111 @@
       <ul class="log" id="log"></ul>
     </section>
   </main>
+
+  <!-- ── Campaign dashboard / analytics ── -->
+  <section class="panel dashboard">
+    <div class="dash-head">
+      <h2 class="panel-title">Campaign dashboard</h2>
+      <button id="refreshStatsBtn" class="secondary-btn small-btn">Refresh</button>
+    </div>
+
+    <div class="dash-cards">
+      <div class="dash-card">
+        <span class="dash-label">Runs / shows</span>
+        <span class="dash-value" id="dash-runs">0</span>
+      </div>
+      <div class="dash-card">
+        <span class="dash-label">Businesses found</span>
+        <span class="dash-value" id="dash-unique">0</span>
+      </div>
+      <div class="dash-card">
+        <span class="dash-label">Emails found</span>
+        <span class="dash-value" id="dash-emails-found">0</span>
+      </div>
+      <div class="dash-card">
+        <span class="dash-label">Emails sent</span>
+        <span class="dash-value" id="dash-emails-sent">0</span>
+      </div>
+      <div class="dash-card">
+        <span class="dash-label">Send failures</span>
+        <span class="dash-value" id="dash-failures">0</span>
+      </div>
+      <div class="dash-card">
+        <span class="dash-label">Responses</span>
+        <span class="dash-value" id="dash-responses">0</span>
+      </div>
+      <div class="dash-card">
+        <span class="dash-label">Response rate</span>
+        <span class="dash-value" id="dash-rate">0%</span>
+      </div>
+    </div>
+
+    <div class="dash-cols">
+      <div class="dash-col">
+        <h3 class="sub-title">Recent runs</h3>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>When</th>
+                <th>Query</th>
+                <th>Status</th>
+                <th>Found</th>
+                <th>Emails</th>
+                <th>Sent</th>
+                <th>Sheet</th>
+              </tr>
+            </thead>
+            <tbody id="dashRunsBody">
+              <tr class="empty"><td colspan="7">No runs yet — start your first search.</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <h3 class="sub-title">Recent sends</h3>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>When</th>
+                <th>Name</th>
+                <th>Email</th>
+                <th>Result</th>
+              </tr>
+            </thead>
+            <tbody id="dashSendsBody">
+              <tr class="empty"><td colspan="4">No email sends recorded yet.</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="dash-col">
+        <h3 class="sub-title">Log a response</h3>
+        <form id="responseForm" class="response-form">
+          <div class="response-fields">
+            <input id="respName" placeholder="Contact name" />
+            <input id="respEmail" placeholder="Contact email" />
+          </div>
+          <div class="response-fields">
+            <select id="respType">
+              <option value="reply">Reply</option>
+              <option value="positive">Positive / interested</option>
+              <option value="callback">Call booked</option>
+              <option value="meeting">Meeting booked</option>
+              <option value="negative">Not interested</option>
+              <option value="other">Other</option>
+            </select>
+            <input id="respNote" placeholder="Note (optional)" />
+          </div>
+          <button type="submit" class="secondary-btn small-btn">Log response</button>
+        </form>
+
+        <h3 class="sub-title">Recent responses</h3>
+        <ul class="resp-list" id="respList"></ul>
+      </div>
+    </div>
+  </section>
 
   <!-- ── Results table ── -->
   <section class="panel results">

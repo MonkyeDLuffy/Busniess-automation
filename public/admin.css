@@ -47,6 +47,27 @@ body {
 .brand h1 { font-family: var(--font-serif); font-weight: 500; font-size: 1.15rem; letter-spacing: -0.01em; }
 .brand p { font-size: 0.72rem; color: var(--muted); letter-spacing: 0.06em; }
 
+.topbar-right {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.user-chip {
+  display: inline-flex; align-items: center; gap: 0.7rem;
+  border: 1px solid var(--line); border-radius: 999px;
+  padding: 0.35rem 1rem 0.35rem 0.45rem;
+  background: rgba(255,255,255,0.03);
+}
+.user-avatar {
+  width: 30px; height: 30px; border-radius: 50%;
+  display: grid; place-items: center;
+  color: #050506; font-family: var(--font-serif); font-size: 0.95rem; font-weight: 600;
+}
+.user-meta { display: flex; flex-direction: column; line-height: 1.2; }
+.user-name { font-size: 0.82rem; color: var(--white); font-weight: 600; }
+.user-label { font-size: 0.62rem; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); }
+
 .status-chip {
   display: inline-flex; align-items: center; gap: 0.55rem;
   border: 1px solid var(--line); border-radius: 999px;
@@ -213,7 +234,108 @@ tr.empty td { text-align: center; color: var(--muted); padding: 2.5rem; }
 .pill.ok { background: rgba(61,220,132,0.12); color: #3ddc84; }
 .pill.bad { background: rgba(255,154,154,0.12); color: #ff9a9a; }
 
+/* ─── Campaign dashboard ─── */
+.dashboard {
+  margin: 0 clamp(1.25rem, 5vw, 4rem) 1.5rem;
+}
+.dash-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1.2rem;
+}
+.dash-head .panel-title { margin-bottom: 0; }
+.small-btn { padding: 0.45rem 1.1rem; font-size: 0.78rem; font-family: var(--font-sans); }
+
+.dash-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: 0.7rem;
+  margin-bottom: 1.4rem;
+}
+.dash-card {
+  background: rgba(255,255,255,0.03);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 0.9rem 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+.dash-label {
+  font-size: 0.62rem; letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted);
+}
+.dash-value {
+  font-family: var(--font-serif);
+  font-size: 1.6rem;
+  color: var(--white);
+  line-height: 1;
+}
+.dash-value.accent { color: var(--blue); }
+.dash-value.good { color: #3ddc84; }
+
+.dash-cols {
+  display: grid;
+  grid-template-columns: 1.4fr 1fr;
+  gap: 1.4rem;
+}
+.dash-col { min-width: 0; }
+.sub-title {
+  font-family: var(--font-serif);
+  font-weight: 500;
+  font-size: 0.92rem;
+  margin: 1rem 0 0.7rem;
+  color: var(--silver);
+}
+.dash-col .sub-title:first-child { margin-top: 0; }
+
+.response-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  padding: 0.8rem;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: rgba(255,255,255,0.02);
+}
+.response-fields { display: grid; grid-template-columns: 1fr 1fr; gap: 0.6rem; }
+.response-fields input,
+.response-fields select {
+  background: rgba(255,255,255,0.025);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 0.6rem 0.8rem;
+  color: var(--white);
+  font-family: var(--font-sans);
+  font-size: 0.85rem;
+}
+.response-fields input:focus,
+.response-fields select:focus { outline: none; border-color: var(--blue); }
+.response-fields select option { background: #0e0e12; color: var(--white); }
+.response-form .small-btn { align-self: flex-start; }
+
+.resp-list {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+  margin-top: 0.7rem;
+}
+.resp-item {
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 0.65rem 0.8rem;
+  background: rgba(255,255,255,0.02);
+}
+.resp-top { display: flex; justify-content: space-between; align-items: center; gap: 0.6rem; }
+.resp-who { font-size: 0.82rem; color: var(--white); }
+.resp-who strong { font-family: var(--font-serif); font-weight: 500; }
+.resp-note { margin-top: 0.35rem; font-size: 0.78rem; color: var(--silver); line-height: 1.5; }
+.resp-date { margin-top: 0.3rem; font-size: 0.66rem; color: var(--muted); }
+.resp-empty { font-size: 0.78rem; color: var(--muted); padding: 0.4rem 0; }
+
 @media (max-width: 900px) {
   .grid { grid-template-columns: 1fr; }
   .progress { max-height: none; }
+  .dash-cols { grid-template-columns: 1fr; }
 }
