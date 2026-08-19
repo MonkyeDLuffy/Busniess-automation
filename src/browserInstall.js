@@ -31,6 +31,18 @@ export function browserInstallTarget(platform = PLATFORM) {
   };
 }
 
+function chmodTree(root, executablePath) {
+  for (const entry of fs.readdirSync(root, { withFileTypes: true })) {
+    const p = path.join(root, entry.name);
+    if (entry.isDirectory()) {
+      fs.chmodSync(p, 0o755);
+      chmodTree(p, executablePath);
+    } else {
+      fs.chmodSync(p, p === executablePath ? 0o755 : 0o644);
+    }
+  }
+}
+
 export async function downloadAndExtractBrowser() {
   const browsersJson = JSON.parse(
     fs.readFileSync(path.join(path.dirname(require.resolve('playwright-core')), 'browsers.json'), 'utf8')
@@ -58,6 +70,7 @@ export async function downloadAndExtractBrowser() {
     if (!fs.existsSync(executablePath)) {
       throw new Error(`Chromium extracted but executable missing: ${executablePath}`);
     }
+    chmodTree(browserDir, executablePath);
     fs.writeFileSync(path.join(browserDir, 'INSTALLATION_COMPLETE'), '');
   }
   return { executablePath, browsersPath: browsersDir };
