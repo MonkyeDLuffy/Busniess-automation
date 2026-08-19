@@ -1,25 +1,15 @@
-import fs from 'node:fs';
-import path from 'node:path';
-import os from 'node:os';
-import { execFileSync } from 'node:child_process';
-import { createRequire } from 'node:module';
 import { extractPlaceId, normalizeText } from './dedupe.js';
+import { downloadAndExtractBrowser } from './browserInstall.js';
 
 process.env.PLAYWRIGHT_BROWSERS_PATH = process.env.PLAYWRIGHT_BROWSERS_PATH || '0';
 
-const require = createRequire(import.meta.url);
-
 async function launchBrowser(headless) {
-  let { chromium } = await import('playwright');
+  const { chromium } = await import('playwright');
   try {
     return await chromium.launch({ headless });
   } catch (err) {
-    const installDir = path.join(os.tmpdir(), 'pw-browsers');
-    process.env.PLAYWRIGHT_BROWSERS_PATH = installDir;
-    ({ chromium } = await import('playwright'));
-    const cliPath = path.join(path.dirname(require.resolve('playwright')), 'cli.js');
-    execFileSync(process.execPath, [cliPath, 'install', 'chromium', '--only-shell'], { stdio: 'inherit' });
-    return chromium.launch({ headless });
+    const { executablePath } = await downloadAndExtractBrowser();
+    return chromium.launch({ headless, executablePath });
   }
 }
 

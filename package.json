@@ -16,6 +16,7 @@
   },
   "dependencies": {
     "@vercel/functions": "^3.9.3",
+    "adm-zip": "^0.6.0",
     "dotenv": "^16.4.5",
     "express": "^4.21.2",
     "googleapis": "^144.0.0",
