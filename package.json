@@ -15,6 +15,7 @@
     "postinstall": "node scripts/install-browsers.mjs"
   },
   "dependencies": {
+    "@sparticuz/chromium": "^149.0.0",
     "@vercel/functions": "^3.9.3",
     "adm-zip": "^0.6.0",
     "dotenv": "^16.4.5",

@@ -1,10 +1,18 @@
 import { extractPlaceId, normalizeText } from './dedupe.js';
-import { downloadAndExtractBrowser } from './browserInstall.js';
+import { downloadAndExtractBrowser, trySparticuzBrowser } from './browserInstall.js';
 
 process.env.PLAYWRIGHT_BROWSERS_PATH = process.env.PLAYWRIGHT_BROWSERS_PATH || '0';
 
 async function launchBrowser(headless) {
   const { chromium } = await import('playwright');
+  const sp = await trySparticuzBrowser();
+  if (sp) {
+    try {
+      return await chromium.launch({ headless, executablePath: sp.executablePath, args: sp.args });
+    } catch (err) {
+      /* fall through to bundled / fetch fallback */
+    }
+  }
   try {
     return await chromium.launch({ headless });
   } catch (err) {

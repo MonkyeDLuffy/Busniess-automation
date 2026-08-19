@@ -31,6 +31,18 @@ export function browserInstallTarget(platform = PLATFORM) {
   };
 }
 
+export async function trySparticuzBrowser() {
+  if (process.platform !== 'linux') return null;
+  try {
+    const mod = await import('@sparticuz/chromium');
+    const sp = mod.default || mod;
+    const executablePath = await sp.executablePath();
+    return { executablePath, args: sp.args || [] };
+  } catch {
+    return null;
+  }
+}
+
 function chmodTree(root, executablePath) {
   for (const entry of fs.readdirSync(root, { withFileTypes: true })) {
     const p = path.join(root, entry.name);
