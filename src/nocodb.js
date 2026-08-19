@@ -1,5 +1,6 @@
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { flatKeys } from './dedupe.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -102,6 +103,40 @@ function mapBusiness(b, colMap, now) {
   set('Query', b.queryType || null);
   set('Found At', b.foundAt || now);
   return row;
+}
+
+export async function loadFingerprintsFromNocodb(onLog) {
+  if (!isNocodbConfigured()) return new Map();
+  const colMap = buildColMap(await listColumns(onLog));
+  const col = (title) => colMap[title];
+  const map = new Map();
+  let offset = 0;
+  const PAGE = 100;
+  for (;;) {
+    const res = await fetch(
+      `${baseUrl()}/api/v2/tables/${process.env.NOCODB_TABLE_ID}/records?limit=${PAGE}&offset=${offset}`,
+      { headers: headers() }
+    );
+    if (!res.ok) return throwHttpError('NocoDB: failed to read records for dedup', res);
+    const data = await res.json();
+    const list = Array.isArray(data) ? data : data.list || [];
+    if (!list.length) break;
+    for (const r of list) {
+      const val = (title) => r[title] ?? r[col(title)];
+      const b = {
+        name: val('Name'),
+        phone: val('Phone'),
+        website: val('Website'),
+        address: val('Address'),
+        placeUrl: val('Google Maps URL'),
+        mapsUrl: val('Google Maps URL')
+      };
+      for (const k of flatKeys(b)) if (!map.has(k)) map.set(k, b.name || '');
+    }
+    offset += list.length;
+    if (list.length < PAGE) break;
+  }
+  return map;
 }
 
 export async function appendBusinessesToNocodb(businesses = [], onLog) {

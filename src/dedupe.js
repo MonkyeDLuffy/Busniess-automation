@@ -111,6 +111,26 @@ export function loadKnownFingerprints() {
   return map;
 }
 
+export async function loadKnownFingerprintsFromStore() {
+  const local = loadKnownFingerprints();
+  const localCount = local.size;
+  let remote = new Map();
+  try {
+    const { loadFingerprintsFromNocodb } = await import('./nocodb.js');
+    remote = await loadFingerprintsFromNocodb();
+  } catch {
+    /* NocoDB unavailable — local only */
+  }
+  let remoteCount = 0;
+  for (const [k, v] of remote) {
+    if (!local.has(k)) {
+      local.set(k, v);
+      remoteCount++;
+    }
+  }
+  return { map: local, localCount, remoteCount };
+}
+
 export function saveDedupIndex(businesses = []) {
   const map = loadKnownFingerprints();
   for (const b of businesses) for (const k of flatKeys(b)) map.set(k, b.name || '');

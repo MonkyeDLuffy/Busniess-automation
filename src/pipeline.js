@@ -5,7 +5,7 @@ import { enrichBusinesses } from './emailFinder.js';
 import { appendBusinesses } from './sheets.js';
 import { appendBusinessesToNocodb, isNocodbConfigured } from './nocodb.js';
 import { sendOutreachToAll, emailSendWarning } from './emailSender.js';
-import { createDeduplicator, loadKnownFingerprints, saveDedupIndex } from './dedupe.js';
+import { createDeduplicator, loadKnownFingerprintsFromStore, saveDedupIndex } from './dedupe.js';
 import { startRun as statsStartRun, completeRun as statsCompleteRun } from './stats.js';
 import { saveJob, isPersistentStoreConfigured } from './jobStore.js';
 import DATA_DIR from './dataDir.js';
@@ -156,9 +156,11 @@ export async function runJob(job) {
     // 1. Discover unique businesses
     timings.DISCOVERY = Date.now();
     job.logPush('Scraping Google Maps…');
-    const known = skipKnown ? loadKnownFingerprints() : new Map();
-    const dedup = createDeduplicator({ known });
-    if (skipKnown) job.logPush(`Loaded ${dedup.size} previously-saved business fingerprints.`);
+    const known = skipKnown ? await loadKnownFingerprintsFromStore() : { map: new Map(), localCount: 0, remoteCount: 0 };
+    const dedup = createDeduplicator({ known: known.map });
+    if (skipKnown) {
+      job.logPush(`Loaded ${dedup.size} previously-saved business fingerprints (${known.remoteCount} from NocoDB, ${known.localCount} local).`);
+    }
 
     const items = await scrapeGoogleMaps({
       query,
