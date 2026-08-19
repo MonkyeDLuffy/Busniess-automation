@@ -7,7 +7,7 @@ import { appendBusinessesToNocodb, isNocodbConfigured } from './nocodb.js';
 import { sendOutreachToAll, emailSendWarning } from './emailSender.js';
 import { createDeduplicator, loadKnownFingerprints, saveDedupIndex } from './dedupe.js';
 import { startRun as statsStartRun, completeRun as statsCompleteRun } from './stats.js';
-import { saveJob } from './jobStore.js';
+import { saveJob, isPersistentStoreConfigured } from './jobStore.js';
 import DATA_DIR from './dataDir.js';
 
 const CONCURRENCY = Number(process.env.CONCURRENCY_LIMIT || 5);
@@ -142,6 +142,9 @@ export async function runJob(job) {
   job.persist?.();
   const query = (businessType && location) ? `${businessType} in ${location}` : businessType || location;
   job.logPush(`Pipeline started: "${query}" (target ${maxResults} unique businesses)`);
+  job.logPush(isPersistentStoreConfigured()
+    ? 'Job store: NocoDB (persistent — trackable across instances).'
+    : 'WARNING: NO job store configured (NOCODB_URL/TOKEN/BASE_ID missing) — job progress is memory-only.');
 
   const stamp = (name) => {
     const ms = Date.now() - timings[name];

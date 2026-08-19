@@ -7,7 +7,7 @@ import { isEmailConfigured, emailSendWarning, sendOutreachToAll } from './emailS
 import { isNocodbConfigured } from './nocodb.js';
 import { isValidUser, issueToken, verifyToken, parseCookies } from './auth.js';
 import { getStats, recordResponse } from './stats.js';
-import { saveJob, getJob, listJobs } from './jobStore.js';
+import { saveJob, getJob, listJobs, isPersistentStoreConfigured } from './jobStore.js';
 
 let waitUntilPromise = null;
 async function getWaitUntil() {
@@ -115,6 +115,20 @@ app.get('/api/health', (req, res) => {
 
 app.get('/api/stats', (req, res) => {
   res.json(getStats());
+});
+
+app.get('/api/health', (req, res) => {
+  res.json({
+    ok: true,
+    env: {
+      node: process.version,
+      vercel: !!process.env.VERCEL,
+      nocodb: isNocodbConfigured(),
+      sheets: isSheetsConfigured(),
+      email: isEmailConfigured(),
+      jobStorePersistent: isPersistentStoreConfigured()
+    }
+  });
 });
 
 app.post('/api/responses', (req, res) => {
